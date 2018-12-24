@@ -257,7 +257,7 @@ int main()
                 bool car_ahead = false;
                 bool car_left = false;
                 bool car_righ = false;
-                for ( int i = 0; i < sensor_fusion.size(); i++ )
+                for (int i = 0; i < sensor_fusion.size(); i++)
                 {
                     float d = sensor_fusion[i][6];
                     int car_lane = -1;
@@ -287,23 +287,23 @@ int main()
                     double check_speed = sqrt(vx*vx + vy*vy);
                     double check_car_s = sensor_fusion[i][5];
                     
-                    // Estimate car s position after executing previous trajectory.
-                    check_car_s += ((double)prev_size*0.02*check_speed);
-                    
-                    if ( car_lane == lane )
+                    // Estimate car s position after executing previous trajectory
+                    uint32_t lane_switching_buffer = 20;
+                    check_car_s += (double(prev_size) * 0.02 * check_speed);
+                    if (car_lane == lane)
                     {
                         // Car is in our lane
-                        car_ahead |= (check_car_s > car_s) && (check_car_s - car_s < 30);
+                        car_ahead |= (check_car_s > car_s) && (check_car_s - car_s < lane_switching_buffer);
                     }
-                    else if ( car_lane - lane == -1 )
+                    else if (car_lane - lane == -1)
                     {
                         // Car is on the left
-                        car_left |= (car_s - 30 < check_car_s) && (car_s + 30 > check_car_s);
+                        car_left |= (car_s - lane_switching_buffer < check_car_s) && (car_s + lane_switching_buffer > check_car_s);
                     }
-                    else if ( car_lane - lane == 1 )
+                    else if (car_lane - lane == 1)
                     {
                         // Car is on the right
-                        car_righ |= (car_s - 30 < check_car_s) && (car_s + 30 > check_car_s);
+                        car_righ |= (car_s - lane_switching_buffer < check_car_s) && (car_s + lane_switching_buffer > check_car_s);
                     }
                 }
                 
@@ -314,12 +314,12 @@ int main()
                 if (car_ahead)
                 {
                     // Car ahead
-                    if ( !car_left && lane > 0 )
+                    if (!car_left && lane > 0)
                     {
                         // If there is no car on the left and there is a left lane, switch to the left lane
                         lane--;
                     }
-                    else if ( !car_righ && lane != 2 )
+                    else if (!car_righ && lane != 2)
                     {
                         // If there is no car on the right and there is a right lane, switch to the right lane
                         lane++;
@@ -397,7 +397,7 @@ int main()
                 ptsy.push_back(next_wp2[1]);
                 
                 // Make coordinates to local car coordinates
-                for ( int i = 0; i < ptsx.size(); i++ )
+                for (int i = 0; i < ptsx.size(); i++)
                 {
                     double shift_x = ptsx[i] - ref_x;
                     double shift_y = ptsy[i] - ref_y;
@@ -466,7 +466,8 @@ int main()
                 
                 //this_thread::sleep_for(chrono::milliseconds(1000));
                 ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-            }      }
+            }
+        }
     });
     
     // We don't need this since we're not using HTTP but if it's removed the

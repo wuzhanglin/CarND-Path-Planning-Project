@@ -318,23 +318,23 @@ int main()
                 for (int i = 0; i < sensor_fusion.size(); i++)
                 {
                     float d = sensor_fusion[i][6];
-                    int car_lane = -1;
+                    int car_lane_to_check = -1;
                     
                     // Check whether it is on the same lane we are
                     if (d > 0 && d < 4)
                     {
-                        car_lane = 0;
+                        car_lane_to_check = 0;
                     }
                     else if (d > 4 && d < 8)
                     {
-                        car_lane = 1;
+                        car_lane_to_check = 1;
                     }
                     else if (d > 8 && d < 12)
                     {
-                        car_lane = 2;
+                        car_lane_to_check = 2;
                     }
                     
-                    if (car_lane < 0)
+                    if (car_lane_to_check < 0)
                     {
                         continue;
                     }
@@ -342,46 +342,46 @@ int main()
                     // Find car speed
                     double vx = sensor_fusion[i][3];
                     double vy = sensor_fusion[i][4];
-                    double check_speed = sqrt(vx*vx + vy*vy);
-                    double check_car_s = sensor_fusion[i][5];
-                    //cout << "check_lane: " << car_lane << ", check_car_s: " << check_car_s << endl;
+                    double car_speed_to_check = sqrt(vx*vx + vy*vy);
+                    double car_s_to_check = sensor_fusion[i][5];
+                    //cout << "check_lane: " << car_lane_to_check << ", car_s_to_check: " << car_s_to_check << endl;
                     
                     // Estimate car s position after executing previous trajectory
                     uint32_t lane_switching_buffer_ahead_me = 25;
                     uint32_t lane_switching_buffer_behind_me = 15;
                     
-                    check_car_s += (double(path_info.prev_size) * 0.02 * check_speed);
-                    if (car_lane == car_info.lane)
+                    car_s_to_check += (double(path_info.prev_size) * 0.02 * car_speed_to_check);
+                    if (car_lane_to_check == car_info.lane)
                     {
                         // Car is in our lane
-                        is_car_ahead |= (check_car_s > car_info.car_s) && (check_car_s < car_info.car_s + lane_switching_buffer_ahead_me);
+                        is_car_ahead |= (car_s_to_check > car_info.car_s) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
                     }
-                    else if (car_lane - car_info.lane == -1)
+                    else if (car_lane_to_check - car_info.lane == -1)
                     {
                         // Car is on the left
-                        is_car_on_left |= (check_car_s > car_info.car_s - lane_switching_buffer_behind_me) && (check_car_s < car_info.car_s + lane_switching_buffer_ahead_me);
+                        is_car_on_left |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
                         
                         if (!is_car_on_left)
                         {
                             //cout << "left lane: free, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
-                            if ((check_car_s > car_info.car_s) && (nearest_car_ahead_on_left > check_car_s))
+                            if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_left > car_s_to_check))
                             {
-                                nearest_car_ahead_on_left = check_car_s;
+                                nearest_car_ahead_on_left = car_s_to_check;
                                 //cout << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
                             }
                         }
                     }
-                    else if (car_lane - car_info.lane == 1)
+                    else if (car_lane_to_check - car_info.lane == 1)
                     {
                         // Car is on the right
-                        is_car_on_right |= (check_car_s > car_info.car_s - lane_switching_buffer_behind_me) && (check_car_s < car_info.car_s + lane_switching_buffer_ahead_me);
+                        is_car_on_right |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
                         
                         if (!is_car_on_right)
                         {
                             //cout << "right lane: free, " << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                            if ((check_car_s > car_info.car_s) && (nearest_car_ahead_on_right > check_car_s))
+                            if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_right > car_s_to_check))
                             {
-                                nearest_car_ahead_on_right = check_car_s;
+                                nearest_car_ahead_on_right = car_s_to_check;
                                 //cout << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
                             }
                         }
@@ -398,7 +398,7 @@ int main()
                         // Check which lane is better - less traffic
                         if (nearest_car_ahead_on_right > nearest_car_ahead_on_left)
                         {
-                            cout << "both lanes are free, right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << ", nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                            cout << "Both lanes are free, the right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << ", nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
                             car_info.lane++;
                         }
                         else

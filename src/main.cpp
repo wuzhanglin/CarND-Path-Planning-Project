@@ -461,7 +461,6 @@ namespace
         double target_dist = sqrt(target_x*target_x + target_y*target_y);
         
         double x_add_on = 0;
-        
         for(int i = 1; i < 50 - path_info.prev_size; i++)
         {
             car_info.ref_vel += car_info.speed_diff;

@@ -209,6 +209,12 @@ namespace
         vector<double> dx;
         vector<double> dy;
     };
+    
+    struct CarControl
+    {
+        vector<double> next_x_vals;
+        vector<double> next_y_vals;
+    };
 }
 
 int main()
@@ -501,13 +507,12 @@ int main()
             tk::spline spline_path;
             spline_path.set_points(ptsx, ptsy);
             
-            // Output path points from previous path for continuity
-            vector<double> next_x_vals;
-            vector<double> next_y_vals;
+            // Output path control points from previous path for continuity
+            CarControl car_control;
             for (int i = 0; i < path_info.prev_size; i++)
             {
-                next_x_vals.push_back(path_info.previous_path_x[i]);
-                next_y_vals.push_back(path_info.previous_path_y[i]);
+                car_control.next_x_vals.push_back(path_info.previous_path_x[i]);
+                car_control.next_y_vals.push_back(path_info.previous_path_y[i]);
             }
             
             // Calculate distance y position on 30m ahead
@@ -544,16 +549,16 @@ int main()
                 x_point += ref_x;
                 y_point += ref_y;
                 
-                next_x_vals.push_back(x_point);
-                next_y_vals.push_back(y_point);
+                car_control.next_x_vals.push_back(x_point);
+                car_control.next_y_vals.push_back(y_point);
             }
             
             lane = car_info.lane;
             ref_vel = car_info.ref_vel;
             
             json msgJson;
-            msgJson["next_x"] = next_x_vals;
-            msgJson["next_y"] = next_y_vals;
+            msgJson["next_x"] = car_control.next_x_vals;
+            msgJson["next_y"] = car_control.next_y_vals;
             auto msg = "42[\"control\","+ msgJson.dump()+"]";
             //this_thread::sleep_for(chrono::milliseconds(1000));
             ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);

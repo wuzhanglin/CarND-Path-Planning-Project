@@ -200,6 +200,15 @@ namespace
         double end_path_s;
         double end_path_d;
     };
+    
+    struct MapWayPoints
+    {
+        vector<double> x;
+        vector<double> y;
+        vector<double> s;
+        vector<double> dx;
+        vector<double> dy;
+    };
 }
 
 int main()
@@ -207,11 +216,7 @@ int main()
     uWS::Hub h;
     
     // Load up map values for waypoint's x,y,s and d normalized normal vectors
-    vector<double> map_waypoints_x;
-    vector<double> map_waypoints_y;
-    vector<double> map_waypoints_s;
-    vector<double> map_waypoints_dx;
-    vector<double> map_waypoints_dy;
+    MapWayPoints map_waypoints;
     
     // Waypoint map to read from
     string map_file_ = "../data/highway_map.csv";
@@ -235,11 +240,11 @@ int main()
         iss >> d_x;
         iss >> d_y;
         
-        map_waypoints_x.push_back(x);
-        map_waypoints_y.push_back(y);
-        map_waypoints_s.push_back(s);
-        map_waypoints_dx.push_back(d_x);
-        map_waypoints_dy.push_back(d_y);
+        map_waypoints.x.push_back(x);
+        map_waypoints.y.push_back(y);
+        map_waypoints.s.push_back(s);
+        map_waypoints.dx.push_back(d_x);
+        map_waypoints.dy.push_back(d_y);
     }
     
     // Car's lane, starting at the middle lane
@@ -248,7 +253,7 @@ int main()
     // Reference velocity, unit: mph
     double ref_vel = 0.0;
     
-    h.onMessage([&ref_vel, &lane, &map_waypoints_x, &map_waypoints_y, &map_waypoints_s, &map_waypoints_dx, &map_waypoints_dy]
+    h.onMessage([&ref_vel, &lane, &map_waypoints]
                 (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
         // "42" at the start of the message means there's a websocket message event.
         // The 4 signifies a websocket message
@@ -467,9 +472,9 @@ int main()
                 }
                 
                 // Set up the target points in the future
-                vector<double> next_wp0 = getXY(car_info.car_s + 30, 2 + 4*car_info.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                vector<double> next_wp1 = getXY(car_info.car_s + 60, 2 + 4*car_info.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                vector<double> next_wp2 = getXY(car_info.car_s + 90, 2 + 4*car_info.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                vector<double> next_wp0 = getXY(car_info.car_s + 30, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
+                vector<double> next_wp1 = getXY(car_info.car_s + 60, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
+                vector<double> next_wp2 = getXY(car_info.car_s + 90, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
                 
                 ptsx.push_back(next_wp0[0]);
                 ptsx.push_back(next_wp1[0]);

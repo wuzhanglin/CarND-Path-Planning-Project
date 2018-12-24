@@ -295,8 +295,8 @@ int main()
                     //cout << "check_lane: " << car_lane << ", check_car_s: " << check_car_s << endl;
                     
                     // Estimate car s position after executing previous trajectory
-                    uint32_t lane_switching_buffer_ahead_me = 20;
-                    uint32_t lane_switching_buffer_behind_me = 10;
+                    uint32_t lane_switching_buffer_ahead_me = 25;
+                    uint32_t lane_switching_buffer_behind_me = 15;
                     
                     check_car_s += (double(prev_size) * 0.02 * check_speed);
                     if (car_lane == lane)
@@ -374,15 +374,6 @@ int main()
                 }
                 else
                 {
-                    if (lane != 1)
-                    {
-                        // If we are not in the center lane, switch back to the center lane
-                        if ((lane == 0 && !is_car_on_right ) || (lane == 2 && !is_car_on_left))
-                        {
-                            lane = 1;
-                        }
-                    }
-                    
                     if (ref_vel < MAX_SPEED)
                     {
                         speed_diff += MAX_ACC;
@@ -501,12 +492,9 @@ int main()
                 }
                 
                 json msgJson;
-                
                 msgJson["next_x"] = next_x_vals;
                 msgJson["next_y"] = next_y_vals;
-                
                 auto msg = "42[\"control\","+ msgJson.dump()+"]";
-                
                 //this_thread::sleep_for(chrono::milliseconds(1000));
                 ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
             }

@@ -254,9 +254,15 @@ int main()
                 }
                 
                 // Prediction: Analysing other cars positions
-                bool car_ahead = false;
-                bool car_left = false;
-                bool car_righ = false;
+                bool is_car_ahead = false;
+                bool is_car_on_left = false;
+                bool is_car_on_right = false;
+                
+                //cout << "____________________________" << endl;
+                //cout << "lane: " << lane << ", car_s: " << car_s << endl;
+                uint32_t nearest_car_ahead_on_left = car_s + 6945.554;
+                uint32_t nearest_car_ahead_on_right = car_s + 6945.554;
+                
                 for (int i = 0; i < sensor_fusion.size(); i++)
                 {
                     float d = sensor_fusion[i][6];
@@ -286,24 +292,47 @@ int main()
                     double vy = sensor_fusion[i][4];
                     double check_speed = sqrt(vx*vx + vy*vy);
                     double check_car_s = sensor_fusion[i][5];
+                    //cout << "check_lane: " << car_lane << ", check_car_s: " << check_car_s << endl;
                     
                     // Estimate car s position after executing previous trajectory
-                    uint32_t lane_switching_buffer = 20;
+                    uint32_t lane_switching_buffer_ahead_me = 20;
+                    uint32_t lane_switching_buffer_behind_me = 10;
+                    
                     check_car_s += (double(prev_size) * 0.02 * check_speed);
                     if (car_lane == lane)
                     {
                         // Car is in our lane
-                        car_ahead |= (check_car_s > car_s) && (check_car_s - car_s < lane_switching_buffer);
+                        is_car_ahead |= (check_car_s > car_s) && (check_car_s < car_s + lane_switching_buffer_ahead_me);
                     }
                     else if (car_lane - lane == -1)
                     {
                         // Car is on the left
-                        car_left |= (car_s - lane_switching_buffer < check_car_s) && (car_s + lane_switching_buffer > check_car_s);
+                        is_car_on_left |= (check_car_s > car_s - lane_switching_buffer_behind_me) && (check_car_s < car_s + lane_switching_buffer_ahead_me);
+                        
+                        if (!is_car_on_left)
+                        {
+                            //cout << "left lane: free, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
+                            if ((check_car_s > car_s) && (nearest_car_ahead_on_left > check_car_s))
+                            {
+                                nearest_car_ahead_on_left = check_car_s;
+                                //cout << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
+                            }
+                        }
                     }
                     else if (car_lane - lane == 1)
                     {
                         // Car is on the right
-                        car_righ |= (car_s - lane_switching_buffer < check_car_s) && (car_s + lane_switching_buffer > check_car_s);
+                        is_car_on_right |= (check_car_s > car_s - lane_switching_buffer_behind_me) && (check_car_s < car_s + lane_switching_buffer_ahead_me);
+                        
+                        if (!is_car_on_right)
+                        {
+                            //cout << "right lane: free, " << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                            if ((check_car_s > car_s) && (nearest_car_ahead_on_right > check_car_s))
+                            {
+                                nearest_car_ahead_on_right = check_car_s;
+                                //cout << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                            }
+                        }
                     }
                 }
                 
@@ -311,15 +340,29 @@ int main()
                 double speed_diff = 0;
                 const double MAX_SPEED = 49.5;
                 const double MAX_ACC = .224;
-                if (car_ahead)
+                if (is_car_ahead)
                 {
-                    // Car ahead
-                    if (!car_left && lane > 0)
+                    bool is_left_lane_free = !is_car_on_left && (lane > 0);
+                    bool is_right_lane_free = !is_car_on_right && (lane != 2);
+                    if (is_left_lane_free && is_right_lane_free)
+                    {
+                        // Check which lane is better - less traffic
+                        if (nearest_car_ahead_on_right > nearest_car_ahead_on_left)
+                        {
+                            cout << "both lanes are free, right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                            lane++;
+                        }
+                        else
+                        {
+                            lane--;
+                        }
+                    }
+                    else if (is_left_lane_free)
                     {
                         // If there is no car on the left and there is a left lane, switch to the left lane
                         lane--;
                     }
-                    else if (!car_righ && lane != 2)
+                    else if (is_right_lane_free)
                     {
                         // If there is no car on the right and there is a right lane, switch to the right lane
                         lane++;
@@ -333,8 +376,8 @@ int main()
                 {
                     if (lane != 1)
                     {
-                        // If we are not in the center lane, swithc back to the center lane
-                        if ((lane == 0 && !car_righ ) || (lane == 2 && !car_left))
+                        // If we are not in the center lane, switch back to the center lane
+                        if ((lane == 0 && !is_car_on_right ) || (lane == 2 && !is_car_on_left))
                         {
                             lane = 1;
                         }

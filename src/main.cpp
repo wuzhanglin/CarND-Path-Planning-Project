@@ -173,6 +173,23 @@ namespace
     
     struct CarInfo
     {
+    public:
+        
+        CarInfo(const json& car_info_json, uint32_t car_lane, double car_ref_vel)
+        {
+            lane = car_lane;
+            ref_vel = car_ref_vel;
+            car_x = car_info_json["x"];
+            car_y = car_info_json["y"];
+            car_s = car_info_json["s"];
+            car_d = car_info_json["d"];
+            car_yaw = car_info_json["yaw"];
+            car_speed = car_info_json["speed"];
+            speed_diff = 0;
+        }
+        
+    public:
+        
         uint32_t lane;
         
         double car_x;
@@ -190,6 +207,22 @@ namespace
     
     struct PathInfo
     {
+    public:
+        
+        PathInfo(const json& path_info_json) :
+            previous_path_x(path_info_json["previous_path_x"].begin(), path_info_json["previous_path_x"].end()),
+            previous_path_y(path_info_json["previous_path_y"].begin(), path_info_json["previous_path_y"].end())
+        {
+            // Provided previous path point size
+            prev_size = previous_path_x.size();
+            
+            // Previous path's end s and d values
+            end_path_s = path_info_json["end_path_s"];
+            end_path_d = path_info_json["end_path_d"];
+        }
+        
+    public:
+        
         uint32_t prev_size;
         
         // Previous path data given to the Planner
@@ -215,6 +248,11 @@ namespace
         vector<double> next_x_vals;
         vector<double> next_y_vals;
     };
+    
+    void AdjustCarSpeedAndLane(const PathInfo& path_info, CarInfo& car_info)
+    {
+        
+    }
 }
 
 int main()
@@ -277,7 +315,7 @@ int main()
                 return;
             }
             
-            auto j = json::parse(s);
+            json j = json::parse(s);
             string event = j[0].get<string>();
             if (event != "telemetry")
             {
@@ -287,31 +325,13 @@ int main()
             // j[1] is the data JSON object
             
             // Main car's localization Data
-            CarInfo car_info;
-            car_info.lane = lane;
-            car_info.ref_vel = ref_vel;
-            car_info.car_x = j[1]["x"];
-            car_info.car_y = j[1]["y"];
-            car_info.car_s = j[1]["s"];
-            car_info.car_d = j[1]["d"];
-            car_info.car_yaw = j[1]["yaw"];
-            car_info.car_speed = j[1]["speed"];
-            car_info.speed_diff = 0;
+            CarInfo car_info(j[1], lane, ref_vel);
             
             // Previous path data given to the Planner
-            PathInfo path_info;
-            path_info.previous_path_x = vector<double>(j[1]["previous_path_x"].begin(), j[1]["previous_path_x"].end());
-            path_info.previous_path_y = vector<double>(j[1]["previous_path_y"].begin(), j[1]["previous_path_y"].end());
-            
-            // Provided previous path point size
-            path_info.prev_size = path_info.previous_path_x.size();
-            
-            // Previous path's end s and d values
-            path_info.end_path_s = j[1]["end_path_s"];
-            path_info.end_path_d = j[1]["end_path_d"];
+            PathInfo path_info(j[1]);
             
             // Sensor fusion data, a list of all other cars on the same side of the road
-            auto sensor_fusion = j[1]["sensor_fusion"];
+            json sensor_fusion = j[1]["sensor_fusion"];
             
             // Preventing collitions
             if (path_info.prev_size > 0)

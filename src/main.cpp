@@ -249,9 +249,137 @@ namespace
         vector<double> next_y_vals;
     };
     
-    void AdjustCarSpeedAndLane(const PathInfo& path_info, CarInfo& car_info)
+    void AdjustCarSpeedAndLane(const PathInfo& path_info, const json& sensor_fusion_json, CarInfo& car_info)
     {
+        // Preventing collitions
+        if (path_info.prev_size > 0)
+        {
+            car_info.car_s = path_info.end_path_s;
+        }
         
+        // Prediction: Analysing other cars positions
+        bool is_car_ahead = false;
+        bool is_car_on_left = false;
+        bool is_car_on_right = false;
+        
+        //cout << "____________________________" << endl;
+        //cout << "lane: " << car_info.lane << ", car_info.car_s: " << car_s << endl;
+        uint32_t nearest_car_ahead_on_left = car_info.car_s + kMaxS;
+        uint32_t nearest_car_ahead_on_right = car_info.car_s + kMaxS;
+        
+        for (int i = 0; i < sensor_fusion_json.size(); i++)
+        {
+            float d = sensor_fusion_json[i][6];
+            int car_lane_to_check = -1;
+            
+            // Check whether it is on the same lane we are
+            if (d > 0 && d < 4)
+            {
+                car_lane_to_check = 0;
+            }
+            else if (d > 4 && d < 8)
+            {
+                car_lane_to_check = 1;
+            }
+            else if (d > 8 && d < 12)
+            {
+                car_lane_to_check = 2;
+            }
+            
+            if (car_lane_to_check < 0)
+            {
+                continue;
+            }
+            
+            // Find car speed
+            double vx = sensor_fusion_json[i][3];
+            double vy = sensor_fusion_json[i][4];
+            double car_speed_to_check = sqrt(vx*vx + vy*vy);
+            double car_s_to_check = sensor_fusion_json[i][5];
+            //cout << "check_lane: " << car_lane_to_check << ", car_s_to_check: " << car_s_to_check << endl;
+            
+            // Estimate car s position after executing previous trajectory
+            uint32_t lane_switching_buffer_ahead_me = 25;
+            uint32_t lane_switching_buffer_behind_me = 15;
+            
+            car_s_to_check += (double(path_info.prev_size) * 0.02 * car_speed_to_check);
+            if (car_lane_to_check == car_info.lane)
+            {
+                // Car is in our lane
+                is_car_ahead |= (car_s_to_check > car_info.car_s) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
+            }
+            else if (car_lane_to_check - car_info.lane == -1)
+            {
+                // Car is on the left
+                is_car_on_left |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
+                
+                if (!is_car_on_left)
+                {
+                    //cout << "left lane: free, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
+                    if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_left > car_s_to_check))
+                    {
+                        nearest_car_ahead_on_left = car_s_to_check;
+                        //cout << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
+                    }
+                }
+            }
+            else if (car_lane_to_check - car_info.lane == 1)
+            {
+                // Car is on the right
+                is_car_on_right |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
+                
+                if (!is_car_on_right)
+                {
+                    //cout << "right lane: free, " << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                    if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_right > car_s_to_check))
+                    {
+                        nearest_car_ahead_on_right = car_s_to_check;
+                        //cout << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                    }
+                }
+            }
+        }
+        
+        // Behavior: Let's see what to do
+        if (is_car_ahead)
+        {
+            bool is_left_lane_free = !is_car_on_left && (car_info.lane > 0);
+            bool is_right_lane_free = !is_car_on_right && (car_info.lane != 2);
+            if (is_left_lane_free && is_right_lane_free)
+            {
+                // Check which lane is better - less traffic
+                if (nearest_car_ahead_on_right > nearest_car_ahead_on_left)
+                {
+                    cout << "Both lanes are free, the right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << ", nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                    car_info.lane++;
+                }
+                else
+                {
+                    car_info.lane--;
+                }
+            }
+            else if (is_left_lane_free)
+            {
+                // If there is no car on the left and there is a left lane, switch to the left lane
+                car_info.lane--;
+            }
+            else if (is_right_lane_free)
+            {
+                // If there is no car on the right and there is a right lane, switch to the right lane
+                car_info.lane++;
+            }
+            else
+            {
+                car_info.speed_diff -= kMaxAcc;
+            }
+        }
+        else
+        {
+            if (car_info.ref_vel < kMaxSpeed)
+            {
+                car_info.speed_diff += kMaxAcc;
+            }
+        }
     }
 }
 
@@ -332,136 +460,7 @@ int main()
             
             // Sensor fusion data, a list of all other cars on the same side of the road
             json sensor_fusion = j[1]["sensor_fusion"];
-            
-            // Preventing collitions
-            if (path_info.prev_size > 0)
-            {
-                car_info.car_s = path_info.end_path_s;
-            }
-            
-            // Prediction: Analysing other cars positions
-            bool is_car_ahead = false;
-            bool is_car_on_left = false;
-            bool is_car_on_right = false;
-            
-            //cout << "____________________________" << endl;
-            //cout << "lane: " << car_info.lane << ", car_info.car_s: " << car_s << endl;
-            uint32_t nearest_car_ahead_on_left = car_info.car_s + kMaxS;
-            uint32_t nearest_car_ahead_on_right = car_info.car_s + kMaxS;
-            
-            for (int i = 0; i < sensor_fusion.size(); i++)
-            {
-                float d = sensor_fusion[i][6];
-                int car_lane_to_check = -1;
-                
-                // Check whether it is on the same lane we are
-                if (d > 0 && d < 4)
-                {
-                    car_lane_to_check = 0;
-                }
-                else if (d > 4 && d < 8)
-                {
-                    car_lane_to_check = 1;
-                }
-                else if (d > 8 && d < 12)
-                {
-                    car_lane_to_check = 2;
-                }
-                
-                if (car_lane_to_check < 0)
-                {
-                    continue;
-                }
-                
-                // Find car speed
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double car_speed_to_check = sqrt(vx*vx + vy*vy);
-                double car_s_to_check = sensor_fusion[i][5];
-                //cout << "check_lane: " << car_lane_to_check << ", car_s_to_check: " << car_s_to_check << endl;
-                
-                // Estimate car s position after executing previous trajectory
-                uint32_t lane_switching_buffer_ahead_me = 25;
-                uint32_t lane_switching_buffer_behind_me = 15;
-                
-                car_s_to_check += (double(path_info.prev_size) * 0.02 * car_speed_to_check);
-                if (car_lane_to_check == car_info.lane)
-                {
-                    // Car is in our lane
-                    is_car_ahead |= (car_s_to_check > car_info.car_s) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
-                }
-                else if (car_lane_to_check - car_info.lane == -1)
-                {
-                    // Car is on the left
-                    is_car_on_left |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
-                    
-                    if (!is_car_on_left)
-                    {
-                        //cout << "left lane: free, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
-                        if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_left > car_s_to_check))
-                        {
-                            nearest_car_ahead_on_left = car_s_to_check;
-                            //cout << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
-                        }
-                    }
-                }
-                else if (car_lane_to_check - car_info.lane == 1)
-                {
-                    // Car is on the right
-                    is_car_on_right |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
-                    
-                    if (!is_car_on_right)
-                    {
-                        //cout << "right lane: free, " << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                        if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_right > car_s_to_check))
-                        {
-                            nearest_car_ahead_on_right = car_s_to_check;
-                            //cout << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                        }
-                    }
-                }
-            }
-            
-            // Behavior: Let's see what to do
-            if (is_car_ahead)
-            {
-                bool is_left_lane_free = !is_car_on_left && (car_info.lane > 0);
-                bool is_right_lane_free = !is_car_on_right && (car_info.lane != 2);
-                if (is_left_lane_free && is_right_lane_free)
-                {
-                    // Check which lane is better - less traffic
-                    if (nearest_car_ahead_on_right > nearest_car_ahead_on_left)
-                    {
-                        cout << "Both lanes are free, the right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << ", nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                        car_info.lane++;
-                    }
-                    else
-                    {
-                        car_info.lane--;
-                    }
-                }
-                else if (is_left_lane_free)
-                {
-                    // If there is no car on the left and there is a left lane, switch to the left lane
-                    car_info.lane--;
-                }
-                else if (is_right_lane_free)
-                {
-                    // If there is no car on the right and there is a right lane, switch to the right lane
-                    car_info.lane++;
-                }
-                else
-                {
-                    car_info.speed_diff -= kMaxAcc;
-                }
-            }
-            else
-            {
-                if (car_info.ref_vel < kMaxSpeed)
-                {
-                    car_info.speed_diff += kMaxAcc;
-                }
-            }
+            AdjustCarSpeedAndLane(path_info, sensor_fusion, car_info);
             
             vector<double> ptsx;
             vector<double> ptsy;

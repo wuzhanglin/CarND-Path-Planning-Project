@@ -273,288 +273,290 @@ int main()
             
             auto j = json::parse(s);
             string event = j[0].get<string>();
-            if (event == "telemetry")
+            if (event != "telemetry")
             {
-                // j[1] is the data JSON object
+                return;
+            }
+            
+            // j[1] is the data JSON object
+            
+            // Main car's localization Data
+            CarInfo car_info;
+            car_info.lane = lane;
+            car_info.ref_vel = ref_vel;
+            car_info.car_x = j[1]["x"];
+            car_info.car_y = j[1]["y"];
+            car_info.car_s = j[1]["s"];
+            car_info.car_d = j[1]["d"];
+            car_info.car_yaw = j[1]["yaw"];
+            car_info.car_speed = j[1]["speed"];
+            car_info.speed_diff = 0;
+            
+            // Previous path data given to the Planner
+            PathInfo path_info;
+            path_info.previous_path_x = vector<double>(j[1]["previous_path_x"].begin(), j[1]["previous_path_x"].end());
+            path_info.previous_path_y = vector<double>(j[1]["previous_path_y"].begin(), j[1]["previous_path_y"].end());
+            
+            // Provided previous path point size
+            path_info.prev_size = path_info.previous_path_x.size();
+            
+            // Previous path's end s and d values
+            path_info.end_path_s = j[1]["end_path_s"];
+            path_info.end_path_d = j[1]["end_path_d"];
+            
+            // Sensor fusion data, a list of all other cars on the same side of the road
+            auto sensor_fusion = j[1]["sensor_fusion"];
+            
+            // Preventing collitions
+            if (path_info.prev_size > 0)
+            {
+                car_info.car_s = path_info.end_path_s;
+            }
+            
+            // Prediction: Analysing other cars positions
+            bool is_car_ahead = false;
+            bool is_car_on_left = false;
+            bool is_car_on_right = false;
+            
+            //cout << "____________________________" << endl;
+            //cout << "lane: " << car_info.lane << ", car_info.car_s: " << car_s << endl;
+            uint32_t nearest_car_ahead_on_left = car_info.car_s + kMaxS;
+            uint32_t nearest_car_ahead_on_right = car_info.car_s + kMaxS;
+            
+            for (int i = 0; i < sensor_fusion.size(); i++)
+            {
+                float d = sensor_fusion[i][6];
+                int car_lane_to_check = -1;
                 
-                // Main car's localization Data
-                CarInfo car_info;
-                car_info.lane = lane;
-                car_info.ref_vel = ref_vel;
-                car_info.car_x = j[1]["x"];
-                car_info.car_y = j[1]["y"];
-                car_info.car_s = j[1]["s"];
-                car_info.car_d = j[1]["d"];
-                car_info.car_yaw = j[1]["yaw"];
-                car_info.car_speed = j[1]["speed"];
-                car_info.speed_diff = 0;
-                
-                // Previous path data given to the Planner
-                PathInfo path_info;
-                path_info.previous_path_x = vector<double>(j[1]["previous_path_x"].begin(), j[1]["previous_path_x"].end());
-                path_info.previous_path_y = vector<double>(j[1]["previous_path_y"].begin(), j[1]["previous_path_y"].end());
-                
-                // Provided previous path point size
-                path_info.prev_size = path_info.previous_path_x.size();
-                
-                // Previous path's end s and d values
-                path_info.end_path_s = j[1]["end_path_s"];
-                path_info.end_path_d = j[1]["end_path_d"];
-                
-                // Sensor fusion data, a list of all other cars on the same side of the road
-                auto sensor_fusion = j[1]["sensor_fusion"];
-                
-                // Preventing collitions
-                if (path_info.prev_size > 0)
+                // Check whether it is on the same lane we are
+                if (d > 0 && d < 4)
                 {
-                    car_info.car_s = path_info.end_path_s;
+                    car_lane_to_check = 0;
+                }
+                else if (d > 4 && d < 8)
+                {
+                    car_lane_to_check = 1;
+                }
+                else if (d > 8 && d < 12)
+                {
+                    car_lane_to_check = 2;
                 }
                 
-                // Prediction: Analysing other cars positions
-                bool is_car_ahead = false;
-                bool is_car_on_left = false;
-                bool is_car_on_right = false;
-                
-                //cout << "____________________________" << endl;
-                //cout << "lane: " << car_info.lane << ", car_info.car_s: " << car_s << endl;
-                uint32_t nearest_car_ahead_on_left = car_info.car_s + kMaxS;
-                uint32_t nearest_car_ahead_on_right = car_info.car_s + kMaxS;
-                
-                for (int i = 0; i < sensor_fusion.size(); i++)
+                if (car_lane_to_check < 0)
                 {
-                    float d = sensor_fusion[i][6];
-                    int car_lane_to_check = -1;
+                    continue;
+                }
+                
+                // Find car speed
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double car_speed_to_check = sqrt(vx*vx + vy*vy);
+                double car_s_to_check = sensor_fusion[i][5];
+                //cout << "check_lane: " << car_lane_to_check << ", car_s_to_check: " << car_s_to_check << endl;
+                
+                // Estimate car s position after executing previous trajectory
+                uint32_t lane_switching_buffer_ahead_me = 25;
+                uint32_t lane_switching_buffer_behind_me = 15;
+                
+                car_s_to_check += (double(path_info.prev_size) * 0.02 * car_speed_to_check);
+                if (car_lane_to_check == car_info.lane)
+                {
+                    // Car is in our lane
+                    is_car_ahead |= (car_s_to_check > car_info.car_s) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
+                }
+                else if (car_lane_to_check - car_info.lane == -1)
+                {
+                    // Car is on the left
+                    is_car_on_left |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
                     
-                    // Check whether it is on the same lane we are
-                    if (d > 0 && d < 4)
+                    if (!is_car_on_left)
                     {
-                        car_lane_to_check = 0;
-                    }
-                    else if (d > 4 && d < 8)
-                    {
-                        car_lane_to_check = 1;
-                    }
-                    else if (d > 8 && d < 12)
-                    {
-                        car_lane_to_check = 2;
-                    }
-                    
-                    if (car_lane_to_check < 0)
-                    {
-                        continue;
-                    }
-                    
-                    // Find car speed
-                    double vx = sensor_fusion[i][3];
-                    double vy = sensor_fusion[i][4];
-                    double car_speed_to_check = sqrt(vx*vx + vy*vy);
-                    double car_s_to_check = sensor_fusion[i][5];
-                    //cout << "check_lane: " << car_lane_to_check << ", car_s_to_check: " << car_s_to_check << endl;
-                    
-                    // Estimate car s position after executing previous trajectory
-                    uint32_t lane_switching_buffer_ahead_me = 25;
-                    uint32_t lane_switching_buffer_behind_me = 15;
-                    
-                    car_s_to_check += (double(path_info.prev_size) * 0.02 * car_speed_to_check);
-                    if (car_lane_to_check == car_info.lane)
-                    {
-                        // Car is in our lane
-                        is_car_ahead |= (car_s_to_check > car_info.car_s) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
-                    }
-                    else if (car_lane_to_check - car_info.lane == -1)
-                    {
-                        // Car is on the left
-                        is_car_on_left |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
-                        
-                        if (!is_car_on_left)
+                        //cout << "left lane: free, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
+                        if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_left > car_s_to_check))
                         {
-                            //cout << "left lane: free, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
-                            if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_left > car_s_to_check))
-                            {
-                                nearest_car_ahead_on_left = car_s_to_check;
-                                //cout << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
-                            }
-                        }
-                    }
-                    else if (car_lane_to_check - car_info.lane == 1)
-                    {
-                        // Car is on the right
-                        is_car_on_right |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
-                        
-                        if (!is_car_on_right)
-                        {
-                            //cout << "right lane: free, " << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                            if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_right > car_s_to_check))
-                            {
-                                nearest_car_ahead_on_right = car_s_to_check;
-                                //cout << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                            }
+                            nearest_car_ahead_on_left = car_s_to_check;
+                            //cout << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
                         }
                     }
                 }
-                
-                // Behavior: Let's see what to do
-                if (is_car_ahead)
+                else if (car_lane_to_check - car_info.lane == 1)
                 {
-                    bool is_left_lane_free = !is_car_on_left && (car_info.lane > 0);
-                    bool is_right_lane_free = !is_car_on_right && (car_info.lane != 2);
-                    if (is_left_lane_free && is_right_lane_free)
+                    // Car is on the right
+                    is_car_on_right |= (car_s_to_check > car_info.car_s - lane_switching_buffer_behind_me) && (car_s_to_check < car_info.car_s + lane_switching_buffer_ahead_me);
+                    
+                    if (!is_car_on_right)
                     {
-                        // Check which lane is better - less traffic
-                        if (nearest_car_ahead_on_right > nearest_car_ahead_on_left)
+                        //cout << "right lane: free, " << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
+                        if ((car_s_to_check > car_info.car_s) && (nearest_car_ahead_on_right > car_s_to_check))
                         {
-                            cout << "Both lanes are free, the right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << ", nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                            car_info.lane++;
-                        }
-                        else
-                        {
-                            car_info.lane--;
+                            nearest_car_ahead_on_right = car_s_to_check;
+                            //cout << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
                         }
                     }
-                    else if (is_left_lane_free)
+                }
+            }
+            
+            // Behavior: Let's see what to do
+            if (is_car_ahead)
+            {
+                bool is_left_lane_free = !is_car_on_left && (car_info.lane > 0);
+                bool is_right_lane_free = !is_car_on_right && (car_info.lane != 2);
+                if (is_left_lane_free && is_right_lane_free)
+                {
+                    // Check which lane is better - less traffic
+                    if (nearest_car_ahead_on_right > nearest_car_ahead_on_left)
                     {
-                        // If there is no car on the left and there is a left lane, switch to the left lane
-                        car_info.lane--;
-                    }
-                    else if (is_right_lane_free)
-                    {
-                        // If there is no car on the right and there is a right lane, switch to the right lane
+                        cout << "Both lanes are free, the right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << ", nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
                         car_info.lane++;
                     }
                     else
                     {
-                        car_info.speed_diff -= kMaxAcc;
+                        car_info.lane--;
                     }
+                }
+                else if (is_left_lane_free)
+                {
+                    // If there is no car on the left and there is a left lane, switch to the left lane
+                    car_info.lane--;
+                }
+                else if (is_right_lane_free)
+                {
+                    // If there is no car on the right and there is a right lane, switch to the right lane
+                    car_info.lane++;
                 }
                 else
                 {
-                    if (car_info.ref_vel < kMaxSpeed)
-                    {
-                        car_info.speed_diff += kMaxAcc;
-                    }
+                    car_info.speed_diff -= kMaxAcc;
                 }
-                
-                vector<double> ptsx;
-                vector<double> ptsy;
-                
-                double ref_x = car_info.car_x;
-                double ref_y = car_info.car_y;
-                double ref_yaw = deg2rad(car_info.car_yaw);
-                
-                // Check whether we have previous points
-                if (path_info.prev_size < 2)
-                {
-                    // There are not too many
-                    double prev_car_x = car_info.car_x - cos(car_info.car_yaw);
-                    double prev_car_y = car_info.car_y - sin(car_info.car_yaw);
-                    
-                    ptsx.push_back(prev_car_x);
-                    ptsx.push_back(car_info.car_x);
-                    
-                    ptsy.push_back(prev_car_y);
-                    ptsy.push_back(car_info.car_y);
-                }
-                else
-                {
-                    // Use the last two points
-                    ref_x = path_info.previous_path_x[path_info.prev_size - 1];
-                    ref_y = path_info.previous_path_y[path_info.prev_size - 1];
-                    
-                    double ref_x_prev = path_info.previous_path_x[path_info.prev_size - 2];
-                    double ref_y_prev = path_info.previous_path_y[path_info.prev_size - 2];
-                    ref_yaw = atan2(ref_y-ref_y_prev, ref_x-ref_x_prev);
-                    
-                    ptsx.push_back(ref_x_prev);
-                    ptsx.push_back(ref_x);
-                    
-                    ptsy.push_back(ref_y_prev);
-                    ptsy.push_back(ref_y);
-                }
-                
-                // Set up the target points in the future
-                vector<double> next_wp0 = getXY(car_info.car_s + 30, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
-                vector<double> next_wp1 = getXY(car_info.car_s + 60, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
-                vector<double> next_wp2 = getXY(car_info.car_s + 90, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
-                
-                ptsx.push_back(next_wp0[0]);
-                ptsx.push_back(next_wp1[0]);
-                ptsx.push_back(next_wp2[0]);
-                
-                ptsy.push_back(next_wp0[1]);
-                ptsy.push_back(next_wp1[1]);
-                ptsy.push_back(next_wp2[1]);
-                
-                // Make coordinates to local car coordinates
-                for (int i = 0; i < ptsx.size(); i++)
-                {
-                    double shift_x = ptsx[i] - ref_x;
-                    double shift_y = ptsy[i] - ref_y;
-                    
-                    ptsx[i] = shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw);
-                    ptsy[i] = shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw);
-                }
-                
-                // Create the spline
-                tk::spline s;
-                s.set_points(ptsx, ptsy);
-                
-                // Output path points from previous path for continuity
-                vector<double> next_x_vals;
-                vector<double> next_y_vals;
-                for (int i = 0; i < path_info.prev_size; i++)
-                {
-                    next_x_vals.push_back(path_info.previous_path_x[i]);
-                    next_y_vals.push_back(path_info.previous_path_y[i]);
-                }
-                
-                // Calculate distance y position on 30m ahead
-                double target_x = 30.0;
-                double target_y = s(target_x);
-                double target_dist = sqrt(target_x*target_x + target_y*target_y);
-                
-                double x_add_on = 0;
-                
-                for(int i = 1; i < 50 - path_info.prev_size; i++)
-                {
-                    car_info.ref_vel += car_info.speed_diff;
-                    if (car_info.ref_vel > kMaxSpeed)
-                    {
-                        car_info.ref_vel = kMaxSpeed;
-                    }
-                    else if (car_info.ref_vel < kMaxAcc)
-                    {
-                        car_info.ref_vel = kMaxAcc;
-                    }
-                    
-                    double N = target_dist / (0.02 * car_info.ref_vel / 2.24);
-                    double x_point = x_add_on + (target_x / N);
-                    double y_point = s(x_point);
-                    
-                    x_add_on = x_point;
-                    
-                    double x_ref = x_point;
-                    double y_ref = y_point;
-                    
-                    x_point = x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw);
-                    y_point = x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
-                    
-                    x_point += ref_x;
-                    y_point += ref_y;
-                    
-                    next_x_vals.push_back(x_point);
-                    next_y_vals.push_back(y_point);
-                }
-                
-                lane = car_info.lane;
-                ref_vel = car_info.ref_vel;
-                
-                json msgJson;
-                msgJson["next_x"] = next_x_vals;
-                msgJson["next_y"] = next_y_vals;
-                auto msg = "42[\"control\","+ msgJson.dump()+"]";
-                //this_thread::sleep_for(chrono::milliseconds(1000));
-                ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
             }
+            else
+            {
+                if (car_info.ref_vel < kMaxSpeed)
+                {
+                    car_info.speed_diff += kMaxAcc;
+                }
+            }
+            
+            vector<double> ptsx;
+            vector<double> ptsy;
+            
+            double ref_x = car_info.car_x;
+            double ref_y = car_info.car_y;
+            double ref_yaw = deg2rad(car_info.car_yaw);
+            
+            // Check whether we have previous points
+            if (path_info.prev_size < 2)
+            {
+                // There are not too many
+                double prev_car_x = car_info.car_x - cos(car_info.car_yaw);
+                double prev_car_y = car_info.car_y - sin(car_info.car_yaw);
+                
+                ptsx.push_back(prev_car_x);
+                ptsx.push_back(car_info.car_x);
+                
+                ptsy.push_back(prev_car_y);
+                ptsy.push_back(car_info.car_y);
+            }
+            else
+            {
+                // Use the last two points
+                ref_x = path_info.previous_path_x[path_info.prev_size - 1];
+                ref_y = path_info.previous_path_y[path_info.prev_size - 1];
+                
+                double ref_x_prev = path_info.previous_path_x[path_info.prev_size - 2];
+                double ref_y_prev = path_info.previous_path_y[path_info.prev_size - 2];
+                ref_yaw = atan2(ref_y-ref_y_prev, ref_x-ref_x_prev);
+                
+                ptsx.push_back(ref_x_prev);
+                ptsx.push_back(ref_x);
+                
+                ptsy.push_back(ref_y_prev);
+                ptsy.push_back(ref_y);
+            }
+            
+            // Set up the target points in the future
+            vector<double> next_wp0 = getXY(car_info.car_s + 30, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
+            vector<double> next_wp1 = getXY(car_info.car_s + 60, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
+            vector<double> next_wp2 = getXY(car_info.car_s + 90, 2 + 4*car_info.lane, map_waypoints.s, map_waypoints.x, map_waypoints.y);
+            
+            ptsx.push_back(next_wp0[0]);
+            ptsx.push_back(next_wp1[0]);
+            ptsx.push_back(next_wp2[0]);
+            
+            ptsy.push_back(next_wp0[1]);
+            ptsy.push_back(next_wp1[1]);
+            ptsy.push_back(next_wp2[1]);
+            
+            // Make coordinates to local car coordinates
+            for (int i = 0; i < ptsx.size(); i++)
+            {
+                double shift_x = ptsx[i] - ref_x;
+                double shift_y = ptsy[i] - ref_y;
+                
+                ptsx[i] = shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw);
+                ptsy[i] = shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw);
+            }
+            
+            // Create the spline
+            tk::spline spline_path;
+            spline_path.set_points(ptsx, ptsy);
+            
+            // Output path points from previous path for continuity
+            vector<double> next_x_vals;
+            vector<double> next_y_vals;
+            for (int i = 0; i < path_info.prev_size; i++)
+            {
+                next_x_vals.push_back(path_info.previous_path_x[i]);
+                next_y_vals.push_back(path_info.previous_path_y[i]);
+            }
+            
+            // Calculate distance y position on 30m ahead
+            double target_x = 30.0;
+            double target_y = spline_path(target_x);
+            double target_dist = sqrt(target_x*target_x + target_y*target_y);
+            
+            double x_add_on = 0;
+            
+            for(int i = 1; i < 50 - path_info.prev_size; i++)
+            {
+                car_info.ref_vel += car_info.speed_diff;
+                if (car_info.ref_vel > kMaxSpeed)
+                {
+                    car_info.ref_vel = kMaxSpeed;
+                }
+                else if (car_info.ref_vel < kMaxAcc)
+                {
+                    car_info.ref_vel = kMaxAcc;
+                }
+                
+                double N = target_dist / (0.02 * car_info.ref_vel / 2.24);
+                double x_point = x_add_on + (target_x / N);
+                double y_point = spline_path(x_point);
+                
+                x_add_on = x_point;
+                
+                double x_ref = x_point;
+                double y_ref = y_point;
+                
+                x_point = x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw);
+                y_point = x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
+                
+                x_point += ref_x;
+                y_point += ref_y;
+                
+                next_x_vals.push_back(x_point);
+                next_y_vals.push_back(y_point);
+            }
+            
+            lane = car_info.lane;
+            ref_vel = car_info.ref_vel;
+            
+            json msgJson;
+            msgJson["next_x"] = next_x_vals;
+            msgJson["next_y"] = next_y_vals;
+            auto msg = "42[\"control\","+ msgJson.dump()+"]";
+            //this_thread::sleep_for(chrono::milliseconds(1000));
+            ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
     });
     

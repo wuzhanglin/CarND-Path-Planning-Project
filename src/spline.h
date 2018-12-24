@@ -197,6 +197,7 @@ void band_matrix::lu_decompose()
         this->saved_diag(i)=1.0/this->operator()(i,i);
         j_min=std::max(0,i-this->num_lower());
         j_max=std::min(this->dim()-1,i+this->num_upper());
+        for(int j=j_min; j<=j_max; j++) {
             this->operator()(i,j) *= this->saved_diag(i);
         }
         this->operator()(i,i)=1.0;          // prevents rounding errors

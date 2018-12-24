@@ -171,7 +171,7 @@ namespace
         return {x,y};
     }
     
-    struct CarParameters
+    struct CarInfo
     {
         uint32_t lane;
         
@@ -186,6 +186,19 @@ namespace
         double speed_diff;
         
         double ref_vel;
+    };
+    
+    struct PathInfo
+    {
+        uint32_t prev_size;
+        
+        // Previous path data given to the Planner
+        vector<double> previous_path_x;
+        vector<double> previous_path_y;
+        
+        // Previous path's end s and d values
+        double end_path_s;
+        double end_path_d;
     };
 }
 
@@ -260,35 +273,36 @@ int main()
                 // j[1] is the data JSON object
                 
                 // Main car's localization Data
-                CarParameters car_parameters;
-                car_parameters.lane = lane;
-                car_parameters.ref_vel = ref_vel;
-                car_parameters.car_x = j[1]["x"];
-                car_parameters.car_y = j[1]["y"];
-                car_parameters.car_s = j[1]["s"];
-                car_parameters.car_d = j[1]["d"];
-                car_parameters.car_yaw = j[1]["yaw"];
-                car_parameters.car_speed = j[1]["speed"];
-                car_parameters.speed_diff = 0;
+                CarInfo car_info;
+                car_info.lane = lane;
+                car_info.ref_vel = ref_vel;
+                car_info.car_x = j[1]["x"];
+                car_info.car_y = j[1]["y"];
+                car_info.car_s = j[1]["s"];
+                car_info.car_d = j[1]["d"];
+                car_info.car_yaw = j[1]["yaw"];
+                car_info.car_speed = j[1]["speed"];
+                car_info.speed_diff = 0;
                 
                 // Previous path data given to the Planner
-                auto previous_path_x = j[1]["previous_path_x"];
-                auto previous_path_y = j[1]["previous_path_y"];
+                PathInfo path_info;
+                path_info.previous_path_x = vector<double>(j[1]["previous_path_x"].begin(), j[1]["previous_path_x"].end());
+                path_info.previous_path_y = vector<double>(j[1]["previous_path_y"].begin(), j[1]["previous_path_y"].end());
+                
+                // Provided previous path point size
+                path_info.prev_size = path_info.previous_path_x.size();
                 
                 // Previous path's end s and d values
-                double end_path_s = j[1]["end_path_s"];
-                double end_path_d = j[1]["end_path_d"];
+                path_info.end_path_s = j[1]["end_path_s"];
+                path_info.end_path_d = j[1]["end_path_d"];
                 
                 // Sensor fusion data, a list of all other cars on the same side of the road
                 auto sensor_fusion = j[1]["sensor_fusion"];
                 
-                // Provided previous path point size
-                int prev_size = previous_path_x.size();
-                
                 // Preventing collitions
-                if (prev_size > 0)
+                if (path_info.prev_size > 0)
                 {
-                    car_parameters.car_s = end_path_s;
+                    car_info.car_s = path_info.end_path_s;
                 }
                 
                 // Prediction: Analysing other cars positions
@@ -297,9 +311,9 @@ int main()
                 bool is_car_on_right = false;
                 
                 //cout << "____________________________" << endl;
-                //cout << "lane: " << car_parameters.lane << ", car_parameters.car_s: " << car_s << endl;
-                uint32_t nearest_car_ahead_on_left = car_parameters.car_s + kMaxS;
-                uint32_t nearest_car_ahead_on_right = car_parameters.car_s + kMaxS;
+                //cout << "lane: " << car_info.lane << ", car_info.car_s: " << car_s << endl;
+                uint32_t nearest_car_ahead_on_left = car_info.car_s + kMaxS;
+                uint32_t nearest_car_ahead_on_right = car_info.car_s + kMaxS;
                 
                 for (int i = 0; i < sensor_fusion.size(); i++)
                 {
@@ -336,36 +350,36 @@ int main()
                     uint32_t lane_switching_buffer_ahead_me = 25;
                     uint32_t lane_switching_buffer_behind_me = 15;
                     
-                    check_car_s += (double(prev_size) * 0.02 * check_speed);
-                    if (car_lane == car_parameters.lane)
+                    check_car_s += (double(path_info.prev_size) * 0.02 * check_speed);
+                    if (car_lane == car_info.lane)
                     {
                         // Car is in our lane
-                        is_car_ahead |= (check_car_s > car_parameters.car_s) && (check_car_s < car_parameters.car_s + lane_switching_buffer_ahead_me);
+                        is_car_ahead |= (check_car_s > car_info.car_s) && (check_car_s < car_info.car_s + lane_switching_buffer_ahead_me);
                     }
-                    else if (car_lane - car_parameters.lane == -1)
+                    else if (car_lane - car_info.lane == -1)
                     {
                         // Car is on the left
-                        is_car_on_left |= (check_car_s > car_parameters.car_s - lane_switching_buffer_behind_me) && (check_car_s < car_parameters.car_s + lane_switching_buffer_ahead_me);
+                        is_car_on_left |= (check_car_s > car_info.car_s - lane_switching_buffer_behind_me) && (check_car_s < car_info.car_s + lane_switching_buffer_ahead_me);
                         
                         if (!is_car_on_left)
                         {
                             //cout << "left lane: free, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
-                            if ((check_car_s > car_parameters.car_s) && (nearest_car_ahead_on_left > check_car_s))
+                            if ((check_car_s > car_info.car_s) && (nearest_car_ahead_on_left > check_car_s))
                             {
                                 nearest_car_ahead_on_left = check_car_s;
                                 //cout << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << endl;
                             }
                         }
                     }
-                    else if (car_lane - car_parameters.lane == 1)
+                    else if (car_lane - car_info.lane == 1)
                     {
                         // Car is on the right
-                        is_car_on_right |= (check_car_s > car_parameters.car_s - lane_switching_buffer_behind_me) && (check_car_s < car_parameters.car_s + lane_switching_buffer_ahead_me);
+                        is_car_on_right |= (check_car_s > car_info.car_s - lane_switching_buffer_behind_me) && (check_car_s < car_info.car_s + lane_switching_buffer_ahead_me);
                         
                         if (!is_car_on_right)
                         {
                             //cout << "right lane: free, " << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                            if ((check_car_s > car_parameters.car_s) && (nearest_car_ahead_on_right > check_car_s))
+                            if ((check_car_s > car_info.car_s) && (nearest_car_ahead_on_right > check_car_s))
                             {
                                 nearest_car_ahead_on_right = check_car_s;
                                 //cout << "nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
@@ -377,72 +391,72 @@ int main()
                 // Behavior: Let's see what to do
                 if (is_car_ahead)
                 {
-                    bool is_left_lane_free = !is_car_on_left && (car_parameters.lane > 0);
-                    bool is_right_lane_free = !is_car_on_right && (car_parameters.lane != 2);
+                    bool is_left_lane_free = !is_car_on_left && (car_info.lane > 0);
+                    bool is_right_lane_free = !is_car_on_right && (car_info.lane != 2);
                     if (is_left_lane_free && is_right_lane_free)
                     {
                         // Check which lane is better - less traffic
                         if (nearest_car_ahead_on_right > nearest_car_ahead_on_left)
                         {
                             cout << "both lanes are free, right lane is better, " << "nearest_car_ahead_on_left: " << nearest_car_ahead_on_left << ", nearest_car_ahead_on_right: " << nearest_car_ahead_on_right << endl;
-                            car_parameters.lane++;
+                            car_info.lane++;
                         }
                         else
                         {
-                            car_parameters.lane--;
+                            car_info.lane--;
                         }
                     }
                     else if (is_left_lane_free)
                     {
                         // If there is no car on the left and there is a left lane, switch to the left lane
-                        car_parameters.lane--;
+                        car_info.lane--;
                     }
                     else if (is_right_lane_free)
                     {
                         // If there is no car on the right and there is a right lane, switch to the right lane
-                        car_parameters.lane++;
+                        car_info.lane++;
                     }
                     else
                     {
-                        car_parameters.speed_diff -= kMaxAcc;
+                        car_info.speed_diff -= kMaxAcc;
                     }
                 }
                 else
                 {
-                    if (car_parameters.ref_vel < kMaxSpeed)
+                    if (car_info.ref_vel < kMaxSpeed)
                     {
-                        car_parameters.speed_diff += kMaxAcc;
+                        car_info.speed_diff += kMaxAcc;
                     }
                 }
                 
                 vector<double> ptsx;
                 vector<double> ptsy;
                 
-                double ref_x = car_parameters.car_x;
-                double ref_y = car_parameters.car_y;
-                double ref_yaw = deg2rad(car_parameters.car_yaw);
+                double ref_x = car_info.car_x;
+                double ref_y = car_info.car_y;
+                double ref_yaw = deg2rad(car_info.car_yaw);
                 
                 // Check whether we have previous points
-                if (prev_size < 2)
+                if (path_info.prev_size < 2)
                 {
                     // There are not too many
-                    double prev_car_x = car_parameters.car_x - cos(car_parameters.car_yaw);
-                    double prev_car_y = car_parameters.car_y - sin(car_parameters.car_yaw);
+                    double prev_car_x = car_info.car_x - cos(car_info.car_yaw);
+                    double prev_car_y = car_info.car_y - sin(car_info.car_yaw);
                     
                     ptsx.push_back(prev_car_x);
-                    ptsx.push_back(car_parameters.car_x);
+                    ptsx.push_back(car_info.car_x);
                     
                     ptsy.push_back(prev_car_y);
-                    ptsy.push_back(car_parameters.car_y);
+                    ptsy.push_back(car_info.car_y);
                 }
                 else
                 {
                     // Use the last two points
-                    ref_x = previous_path_x[prev_size - 1];
-                    ref_y = previous_path_y[prev_size - 1];
+                    ref_x = path_info.previous_path_x[path_info.prev_size - 1];
+                    ref_y = path_info.previous_path_y[path_info.prev_size - 1];
                     
-                    double ref_x_prev = previous_path_x[prev_size - 2];
-                    double ref_y_prev = previous_path_y[prev_size - 2];
+                    double ref_x_prev = path_info.previous_path_x[path_info.prev_size - 2];
+                    double ref_y_prev = path_info.previous_path_y[path_info.prev_size - 2];
                     ref_yaw = atan2(ref_y-ref_y_prev, ref_x-ref_x_prev);
                     
                     ptsx.push_back(ref_x_prev);
@@ -453,9 +467,9 @@ int main()
                 }
                 
                 // Set up the target points in the future
-                vector<double> next_wp0 = getXY(car_parameters.car_s + 30, 2 + 4*car_parameters.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                vector<double> next_wp1 = getXY(car_parameters.car_s + 60, 2 + 4*car_parameters.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                vector<double> next_wp2 = getXY(car_parameters.car_s + 90, 2 + 4*car_parameters.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                vector<double> next_wp0 = getXY(car_info.car_s + 30, 2 + 4*car_info.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                vector<double> next_wp1 = getXY(car_info.car_s + 60, 2 + 4*car_info.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                vector<double> next_wp2 = getXY(car_info.car_s + 90, 2 + 4*car_info.lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
                 
                 ptsx.push_back(next_wp0[0]);
                 ptsx.push_back(next_wp1[0]);
@@ -482,10 +496,10 @@ int main()
                 // Output path points from previous path for continuity
                 vector<double> next_x_vals;
                 vector<double> next_y_vals;
-                for (int i = 0; i < prev_size; i++)
+                for (int i = 0; i < path_info.prev_size; i++)
                 {
-                    next_x_vals.push_back(previous_path_x[i]);
-                    next_y_vals.push_back(previous_path_y[i]);
+                    next_x_vals.push_back(path_info.previous_path_x[i]);
+                    next_y_vals.push_back(path_info.previous_path_y[i]);
                 }
                 
                 // Calculate distance y position on 30m ahead
@@ -495,19 +509,19 @@ int main()
                 
                 double x_add_on = 0;
                 
-                for(int i = 1; i < 50 - prev_size; i++)
+                for(int i = 1; i < 50 - path_info.prev_size; i++)
                 {
-                    car_parameters.ref_vel += car_parameters.speed_diff;
-                    if (car_parameters.ref_vel > kMaxSpeed)
+                    car_info.ref_vel += car_info.speed_diff;
+                    if (car_info.ref_vel > kMaxSpeed)
                     {
-                        car_parameters.ref_vel = kMaxSpeed;
+                        car_info.ref_vel = kMaxSpeed;
                     }
-                    else if (car_parameters.ref_vel < kMaxAcc)
+                    else if (car_info.ref_vel < kMaxAcc)
                     {
-                        car_parameters.ref_vel = kMaxAcc;
+                        car_info.ref_vel = kMaxAcc;
                     }
                     
-                    double N = target_dist / (0.02 * car_parameters.ref_vel / 2.24);
+                    double N = target_dist / (0.02 * car_info.ref_vel / 2.24);
                     double x_point = x_add_on + (target_x / N);
                     double y_point = s(x_point);
                     
@@ -526,8 +540,8 @@ int main()
                     next_y_vals.push_back(y_point);
                 }
                 
-                lane = car_parameters.lane;
-                ref_vel = car_parameters.ref_vel;
+                lane = car_info.lane;
+                ref_vel = car_info.ref_vel;
                 
                 json msgJson;
                 msgJson["next_x"] = next_x_vals;

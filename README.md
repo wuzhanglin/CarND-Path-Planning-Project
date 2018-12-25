@@ -20,7 +20,39 @@ The highway's waypoints loop around so the frenet s value, distance along the ro
 1. Clone this repo
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
-4. Run: `./path_planning`.
+4. Run: `./path_planning`
+
+Here is an example of the output of the build:
+```
+$ cmake ..
+-- The C compiler identification is AppleClang 9.1.0.9020039
+-- The CXX compiler identification is AppleClang 9.1.0.9020039
+-- Check for working C compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc
+-- Check for working C compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Check for working CXX compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++
+-- Check for working CXX compiler: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /Users/informatics/Desktop/Tools/AI/CARND/Projects/Path-Planning/CarND-Path-Planning-Project/build
+
+$ make
+Scanning dependencies of target path_planning
+[ 50%] Building CXX object CMakeFiles/path_planning.dir/src/main.cpp.o
+[100%] Linking CXX executable path_planning
+[100%] Built target path_planning
+
+$ ./path_planning 
+Listening to port 4567
+Connected!!!
+```
 
 ## Details
 
@@ -68,7 +100,7 @@ Note: Return the previous list but with processed points removed, can be a nice 
 
 ### Tips
 
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
+* A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
 
 ## Dependencies
 
@@ -76,14 +108,14 @@ A really helpful resource for doing this project and creating smooth trajectorie
   * All OSes: [click here for installation instructions](https://cmake.org/install/)
 * make >= 4.1
   * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
+  * Mac: [Install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
   * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
 * gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
+  * Linux: gcc/g++ is installed by default on most Linux distros
+  * Mac: Same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
+  * Windows: Recommend using [MinGW](http://www.mingw.org/)
 * [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
+  * Run either `install-mac.sh` or `install-ubuntu.sh`
   * If you install from source, checkout to commit `e94b6e1`, i.e.
     ```
     git clone https://github.com/uWebSockets/uWebSockets 
@@ -97,48 +129,11 @@ We've purposefully kept editor configuration files out of this repo in order to
 keep it as simple and environment agnostic as possible. However, we recommend
 using the following settings:
 
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
+* Indent using spaces
+* Set tab width to 4 spaces (keeps the matrices in source code aligned)
 
 ## Code Style
 
 Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
 
 ## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
-

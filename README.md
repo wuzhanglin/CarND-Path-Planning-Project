@@ -136,4 +136,15 @@ using the following settings:
 
 Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
 
-## Project Instructions and Rubric
+## Check Points
+
+### The car is able to drive at least 4.32 miles without incident
+The car was able to drive more than 4.5 miles. The top right screen of the simulator shows the current/best miles driven without incident. Incidents include exceeding acceleration/jerk/speed, collision, and driving outside of the lanes. Each incident case is also listed below in more detail.
+
+![Drive Without Incident](./README-images/no-car-ahead.png)
+
+#### The car drives according to the speed limit
+During the drive, the car didn't drive faster than the speed limit. Also the car wasn't driving much slower than speed limit unless obstructed by traffic.
+
+#### Max Acceleration and Jerk are not Exceeded
+During the drive, the car did not exceed a total acceleration of 10 m/s^2 and a jerk of 10 m/s^3.

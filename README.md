@@ -139,7 +139,7 @@ Please (do your best to) stick to [Google's C++ style guide](https://google.gith
 ## Check Points
 
 ### The car is able to drive at least 4.32 miles without incident
-The car was able to drive more than 4.5 miles. The top right screen of the simulator shows the current/best miles driven without incident. Incidents include exceeding acceleration/jerk/speed, collision, and driving outside of the lanes. Each incident case is also listed below in more detail.
+The car was able to drive 4.5 miles without incident. The top right screen of the simulator shows the current/best miles driven without incident. Incidents include exceeding acceleration/jerk/speed, collision, and driving outside of the lanes. Each incident case is also listed below in more detail.
 
 ![Drive Without Incident](./README-images/no-car-ahead.png)
 
@@ -148,3 +148,28 @@ During the drive, the car didn't drive faster than the speed limit. Also the car
 
 #### Max Acceleration and Jerk are not Exceeded
 During the drive, the car did not exceed a total acceleration of 10 m/s^2 and a jerk of 10 m/s^3.
+
+#### Car does not have collisions
+During the drive, the car did not come into contact with any of the other cars on the road.
+
+For example, the car slowed down when it detected that there was another car ahead but there was no good condition to swith to another lane.
+
+![Slow Down When a Car is Ahead but Not Good to Switch Lane](./README-images/car-ahead-detected-and-slow-down.png)
+
+#### The car stays in its lane, except for the time between changing lanes
+During the drive, the car stayed in its lane. The car didn't spend more than a 3 second length out side the lane lanes during changing lanes, and every other time the car stays inside one of the 3 lanes on the right hand side of the road.
+
+#### The car is able to change lanes
+During the drive, the car was able to smoothly change lanes when it made sense to do so, such as when behind a slower moving car and an adjacent lane is clear of other traffic.
+
+For example, the car switched to the lane on its left when it detected that there was another car ahead and the lane on the left was free to swith to.
+
+![Turn Left When a Car is Ahead and Left Lane is Free](./README-images/car-ahead-detected-and-turn-left.png)
+
+The car switched to the lane on its right when it detected that there was another car ahead and the lane on the right was free to swith to.
+
+![Turn Left When a Car is Ahead and Left Lane is Free](./README-images/car-ahead-detected-and-turn-right.png)
+
+The car smartly swithed to the lane on its right when it detected that there was another car ahead and both the left and right lanes were free, but the right lane has a better condition because there was no car ahead. (Note: There is a car ahead in the left lane.)
+
+![Turn Left When a Car is Ahead and Left Lane is Free](./README-images/car-ahead-detected-and-smartly-turn-left.png)

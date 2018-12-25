@@ -168,8 +168,8 @@ For example, the car switched to the lane on its left when it detected that ther
 
 The car switched to the lane on its right when it detected that there was another car ahead and the lane on the right was free to swith to.
 
-![Turn Left When a Car is Ahead and Left Lane is Free](./README-images/car-ahead-detected-and-turn-right.png)
+![Turn Left When a Car is Ahead and Right Lane is Free](./README-images/car-ahead-detected-and-turn-right.png)
 
 The car smartly swithed to the lane on its right when it detected that there was another car ahead and both the left and right lanes were free, but the right lane has a better condition because there was no car ahead. (Note: There is a car ahead in the left lane.)
 
-![Turn Left When a Car is Ahead and Left Lane is Free](./README-images/car-ahead-detected-and-smartly-turn-left.png)
+![Turn Left When a Car is Ahead and Smartly Turn Right](./README-images/car-ahead-detected-and-smartly-turn-right.png)

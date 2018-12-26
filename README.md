@@ -176,27 +176,44 @@ The car smartly swithed to the lane on its right when it detected that there was
 
 ## Reflection
 
-Based on the provided code from the seed project, the path planning algorithms are implemented in function `AdjustCarSpeedAndLane` at [./src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252) and `GenerateCarControlPoints` at [./src/main.cpp#L385](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L385).
+Based on the provided code from the seed project, the path planning algorithms are implemented in function `AdjustCarSpeedAndLane` at [src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252) and `GenerateCarControlPoints` at [src/main.cpp#L385](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L385).
 
 ### Prediction
 `AdjustCarSpeedAndLane` at [./src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252)
 
-In this function (from [./src/main.cpp#L272](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L272) to [./src/main.cpp#L341](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L341)) we use the telemetry and sensor fusion data to reason about the environment and to detect these three cases:
+In this function (from [src/main.cpp#L272](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L272) to [#L341](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L341)) we use the telemetry and sensor fusion data to reason about the environment and to detect these three cases:
 
-- Whether there is a car in front of this car blocking the traffic
-- Whether there is a car on the left of this car making a lane change unsafe
-- Whether there is a car on the right of this car making a lane switching unsafe
+  - Whether there is a car in front of this car blocking the traffic
+  - Whether there is a car on the left of this car making a lane change unsafe
+  - Whether there is a car on the right of this car making a lane switching unsafe
 
 These questions are answered by calculating the lane in which every other car is and the position it will be at the end of the last plan trajectory. A car is considered "dangerous" when its distance to our car is less than 25 meters in front or 15 meters behind this car.
 
 ### Behavior
-`AdjustCarSpeedAndLane` at [./src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252)
+`AdjustCarSpeedAndLane` at [src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252)
 
-This part decides what to do:
-  - If we have a car in front of us, do we change lanes?
-  - Do we speed up or slow down?
+In this function (from [src/main.cpp#L343](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L343) to [#L382](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L382)) we make a decision on what to do next if there is a car in front of this car:
 
-Based on the prediction of the situation we are in, this code increases the speed, decrease speed, or make a lane change when it is safe. Instead of increasing the speed at this part of the code, a `speed_diff` is created to be used for speed changes when generating the trajectory in the last part of the code. This approach makes the car more responsive acting faster to changing situations like a car in front of it trying to apply breaks to cause a collision.
+  - Switch lanes?
+  - Or, speed up?
+  - Or, slow down?
+
+Based on the prediction on the situation, this car increases the speed, decrease speed, or swithc the lane only when it is safe. To make the car speeding up or slowing down smoothly, we use a `car_info.speed_diff` for speed changes for generating the trajectory later:
+```
+// Line 21: Limit the acceleration so the car can speed up or slow down smoothly
+constexpr const double kMaxAcc = 0.224;
+
+// Line 373: Speed up the car smoothly if there is no car ahead of us
+car_info.speed_diff -= kMaxAcc;
+
+// Line 380: Or, slow down the car smoothly if there is a car ahead but we can't switch lanes
+car_info.speed_diff -= kMaxAcc;
+
+// Line 466: Finally, change the speed smoothly
+car_info.ref_vel += car_info.speed_diff;
+```
+
+With this approach, we can make the car more responsive to situations where there a car ahead which will possibly cause a collision, or there is no car ahead and we can speed up smoothly to the maximum speed allowed.
 
 ### Trajectory [line 317 to line 416](./src/main.cpp#L313)
 This code does the calculation of the trajectory based on the speed and lane output from the behavior, car coordinates and past path points.

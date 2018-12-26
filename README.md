@@ -9,7 +9,7 @@ We can download the Car Simulator which contains the Path Planning project from 
 
 ### Map Data
 
-The map of the highway is in data/highway_map.txt.
+The map of the highway is in [data/highway_map.csv](data/highway_map.csv).
 
 Each waypoint in the list contains [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
 
@@ -58,7 +58,7 @@ Connected!!!
 
 ### Simulation Data
 
-Here is the data provided from the Simulator to the C++ Program
+Here is the data provided from the Simulator to our C++ program:
 
 #### Main car's localization Data (No Noise)
 
@@ -134,7 +134,7 @@ using the following settings:
 
 ## Code Style
 
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
+Please (do the best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
 
 ## Check Points
 
@@ -146,7 +146,7 @@ The car was able to drive 4.5 miles without incident. The top right screen of th
 #### The car drives according to the speed limit
 During the drive, the car didn't drive faster than the speed limit. Also the car wasn't driving much slower than speed limit unless obstructed by traffic.
 
-#### Max Acceleration and Jerk are not Exceeded
+#### Max Acceleration and Jerk are not exceeded
 During the drive, the car did not exceed a total acceleration of 10 m/s^2 and a jerk of 10 m/s^3.
 
 #### Car does not have collisions
@@ -170,7 +170,7 @@ The car switched to the lane on its right when it detected that there was anothe
 
 ![Turn Left When a Car is Ahead and Right Lane is Free](./README-images/car-ahead-detected-and-turn-right.png)
 
-The car smartly swithed to the lane on its right when it detected that there was another car ahead and both the left and right lanes were free, but the right lane has a better condition because there was no car ahead. (Note: There is a car ahead in the left lane.)
+The car smartly swithed to the lane on its right when it detected that there was another car ahead and both the left and right lanes were free, but the right lane has a better condition because there was no car ahead. (Note there is a car ahead in the left lane.)
 
 ![Turn Left When a Car is Ahead and Smartly Turn Right](./README-images/car-ahead-detected-and-smartly-turn-right.png)
 
@@ -178,7 +178,7 @@ The car smartly swithed to the lane on its right when it detected that there was
 
 Based on the provided code from the seed project, the path planning algorithms are implemented in function `AdjustCarSpeedAndLane` at [src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252) and `GenerateCarControlPoints` at [src/main.cpp#L385](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L385).
 
-### Prediction
+### Perception
 `AdjustCarSpeedAndLane` at [./src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252)
 
 In this function (from [src/main.cpp#L272](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L272) to [#L341](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L341)) we use the telemetry and sensor fusion data to reason about the environment and to detect these three cases:
@@ -198,27 +198,27 @@ In this function (from [src/main.cpp#L343](https://github.com/wuzhanglin/CarND-P
   - Or, speed up?
   - Or, slow down?
 
-Based on the prediction on the situation, this car increases the speed, decrease speed, or swithc the lane only when it is safe. To make the car speeding up or slowing down smoothly, we use a `car_info.speed_diff` for speed changes for generating the trajectory later:
+Based on the perception on the situation, this car will increase or decrease the speed, or switch the lane only when it is safe. To make the car speeding up or slowing down smoothly, we use a `car_info.speed_diff` for speed changes which are used later for generating the trajectory:
 ```
 // Line 21: Limit the acceleration so the car can speed up or slow down smoothly
 constexpr const double kMaxAcc = 0.224;
 
-// Line 373: Speed up the car smoothly if there is no car ahead of us
-car_info.speed_diff -= kMaxAcc;
+// Line 373: Speed up smoothly if there is no car ahead of us
+car_info.speed_diff += kMaxAcc;
 
-// Line 380: Or, slow down the car smoothly if there is a car ahead but we can't switch lanes
+// Line 380: Or, slow down smoothly if there is a car ahead but it's not safe to switch lanes
 car_info.speed_diff -= kMaxAcc;
 
 // Line 466: Finally, change the speed smoothly
 car_info.ref_vel += car_info.speed_diff;
 ```
 
-With this approach, we can make the car more responsive to situations where there is a car ahead which will possibly cause a collision, or there is no car ahead and we can speed up smoothly to the maximum speed allowed.
+With this approach, we can make the car more responsive to situations where there is a car ahead which will possibly cause a collision, or there is no car ahead and we can speed up smoothly to the speed limit.
 
 ### Trajectory
 `GenerateCarControlPoints` at [src/main.cpp#L385](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/16b7df7625a407c2da68740dc6fab7e242c336cc/src/main.cpp#L385)
 
-This function calculate the trajectory based on the speed and lane output from the behavior in function `AdjustCarSpeedAndLane`([src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252)), car coordinates, and the previous path points.
+This function calculate the trajectory based on the speed and lane output from the behavior in function `AdjustCarSpeedAndLane`, car coordinates, and the previous path points.
 
 Note we used the `spline` tool to generate a smooth trajectory.
 

@@ -213,11 +213,21 @@ car_info.speed_diff -= kMaxAcc;
 car_info.ref_vel += car_info.speed_diff;
 ```
 
-With this approach, we can make the car more responsive to situations where there a car ahead which will possibly cause a collision, or there is no car ahead and we can speed up smoothly to the maximum speed allowed.
+With this approach, we can make the car more responsive to situations where there is a car ahead which will possibly cause a collision, or there is no car ahead and we can speed up smoothly to the maximum speed allowed.
 
-### Trajectory [line 317 to line 416](./src/main.cpp#L313)
-This code does the calculation of the trajectory based on the speed and lane output from the behavior, car coordinates and past path points.
+### Trajectory
+`GenerateCarControlPoints` at [src/main.cpp#L385](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/16b7df7625a407c2da68740dc6fab7e242c336cc/src/main.cpp#L385)
 
-First, the last two points of the previous trajectory (or the car position if there are no previous trajectory, lines 321 to 345) are used in conjunction three points at a far distance (lines 348 to 350) to initialize the spline calculation (line 370 and 371). To make the work less complicated to the spline calculation based on those points, the coordinates are transformed (shift and rotation) to local car coordinates (lines 361 to 367).
+This function calculate the trajectory based on the speed and lane output from the behavior `AdjustCarSpeedAndLane` at [src/main.cpp#L252](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L252), car coordinates, and the previous path points.
 
-In order to ensure more continuity on the trajectory (in addition to adding the last two point of the pass trajectory to the spline adjustment), the pass trajectory points are copied to the new trajectory (lines 374 to 379). The rest of the points are calculated by evaluating the spline and transforming the output coordinates to not local coordinates (lines 388 to 407). Worth noticing the change in the velocity of the car from line 393 to 398. The speed change is decided on the behavior part of the code, but it is used in that part to increase/decrease speed on every trajectory points instead of doing it for the complete trajectory.
+We use the `spline` tool to generate the trajectory:
+
+  # Step 1. Generate the first two positions using the last two points of the previous trajectory (from [src/main.cpp#L409](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L409) to [#L421](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L421)), or the car position if there are no previous trajectory (from [src/main.cpp#L397](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L397) to [#L405](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L405))
+
+  # Step 2. Generate the next three positions using the three points at a far distance (from [src/main.cpp#L424](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L424) to [#L435](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L435))
+
+  # Step 3. Transform (shift and rotation) the positions to local car coordinates to make the work less complicated to the spline calculation based on those points, and generate the spline using these points (from [src/main.cpp#L437](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L437) to [#L449](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L449))
+
+  # Step 4. Copy the previous trajectory points into the current trajectory to smooth the trajectory (from [src/main.cpp#L451](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L451) to [#L456](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L456))
+
+  # Step 5. Calculate the rest of the trajectory points by evaluating the spline and transforming the output coordinates to non-local coordinates (from [src/main.cpp#L458](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L458) to [#L493](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L493)). Note the change in the velocity of the car is decided by the behavior part, but is used to increase/decrease speed on each trajectory points instead of the whole trajectory (from [src/main.cpp#L466](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L466) to [#L474](https://github.com/wuzhanglin/CarND-Path-Planning-Project/blob/fa9d1179f9ca452cd2360c18bbe28ca893caa4c3/src/main.cpp#L474)).
